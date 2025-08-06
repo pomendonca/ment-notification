@@ -1,0 +1,39 @@
+server:
+  port: 8080
+  servlet:
+    context-path: /notification
+
+jasypt:
+  encryptor:
+    algorithm: PBEWITHHMACSHA512ANDAES_256
+    iv-generator-classname: org.jasypt.iv.RandomIvGenerator
+    password: ${CRYPT_KEY:PWD}
+
+spring:
+  profiles:
+    active: ${PROFILE:}
+  jackson:
+    default-property-inclusion: non_null
+    property-naming-strategy: SNAKE_CASE
+
+management:
+  endpoint:
+    health:
+      show-components: always
+  endpoints:
+    web:
+      base-path: /v1/actuator
+      exposure:
+        include: actuator,logfile,metrics,health,info
+
+logging:
+  file:
+    path: .
+    name: ment-notification.log
+  level:
+    root: info
+    org:
+      springframework:
+      web: info
+    com:
+      portoseg: debug

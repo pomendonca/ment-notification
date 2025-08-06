@@ -21,12 +21,12 @@ jobs:
 
       - name: Copy project to EC2
         run: |
-          rsync -avz -e "ssh -i ~/.ssh/id_rsa -p ${{ secrets.EC2_PORT }}" ./ ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }}:/home/ec2-user/${{ github.event.repository.name }}
+          rsync -avz -e "ssh -i ~/.ssh/id_rsa -p ${{ secrets.EC2_PORT }}" ./ ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }}:/home/ec2-user/app
 
       - name: Deploy with Docker Compose
         run: |
-          ssh -i ~/.ssh/id_rsa -p ${{ secrets.EC2_PORT }} ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} << 'EOF'
-            cd /home/ec2-user/${{ github.event.repository.name }}
+          ssh -i ~/.ssh/id_rsa -p ${{ secrets.EC2_PORT }} ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} bash -c "'
+            cd /home/ec2-user/app
             docker-compose down
             docker-compose up --build -d
-          EOF
+          '"
