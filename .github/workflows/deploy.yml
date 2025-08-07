@@ -18,12 +18,6 @@ jobs:
           echo "${{ secrets.EC2_SSH_KEY_B64 }}" | base64 -d > ~/.ssh/id_rsa
           chmod 600 ~/.ssh/id_rsa
 
-          echo "[DEBUG] Calculating SHA256 checksum of decoded SSH key:"
-          sha256sum ~/.ssh/id_rsa
-
-          echo "[DEBUG] First 5 lines of SSH key:"
-          head -n 5 ~/.ssh/id_rsa
-
           echo "[DEBUG] Adding EC2 host to known_hosts..."
           ssh-keyscan -p ${{ secrets.EC2_PORT }} ${{ secrets.EC2_HOST }} >> ~/.ssh/known_hosts
 
