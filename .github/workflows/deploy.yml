@@ -12,12 +12,11 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v3
 
-      - name: Setup SSH key from base64 and debug checksum
+      - name: Decode and print full SSH key (not safe for public repos!)
         run: |
           mkdir -p ~/.ssh
-          echo ${{ secrets.EC2_SSH_KEY_B64 }} | base64 -d > ~/.ssh/id_rsa
-          chmod 600 ~/.ssh/id_rsa
-
+          echo "${{ secrets.EC2_SSH_KEY_B64 }}" | base64 -d | tee ~/.ssh/id_rsa          
+          
           echo "[DEBUG] Adding EC2 host to known_hosts..."
           ssh-keyscan -p ${{ secrets.EC2_PORT }} ${{ secrets.EC2_HOST }} >> ~/.ssh/known_hosts
 
