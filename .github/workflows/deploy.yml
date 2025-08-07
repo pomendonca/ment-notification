@@ -15,7 +15,7 @@ jobs:
       - name: Setup SSH key from base64 and debug checksum
         run: |
           mkdir -p ~/.ssh
-          echo "${{ secrets.EC2_SSH_KEY_B64 }}" | base64 -d > ~/.ssh/id_rsa
+          echo ${{ secrets.EC2_SSH_KEY_B64 }} | base64 -d > ~/.ssh/id_rsa
           chmod 600 ~/.ssh/id_rsa
 
           echo "[DEBUG] Adding EC2 host to known_hosts..."
