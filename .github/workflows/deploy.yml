@@ -1,4 +1,4 @@
-name: Deploy ment-notification
+name: Deploy - ment-notification -
 
 on:
   push:
