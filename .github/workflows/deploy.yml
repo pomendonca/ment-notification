@@ -1,4 +1,4 @@
-name: Deploy - ment-notification -
+name: 🚀 Deploy ment-notification para EC2
 
 on:
   push:
@@ -10,34 +10,46 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: 📥 Checkout ment-notification
+      - name: 📥 Checkout do código
         uses: actions/checkout@v4
-        with:
-          path: ment-notification
 
-      - name: Configurar chave SSH
+      - name: 🏗 Build do JAR usando Maven
+        run: |
+          mvn clean package -DskipTests
+
+      - name: 📝 Preparar chave SSH
         run: |
           mkdir -p ~/.ssh
-          echo "${{ secrets.EC2_SSH_KEY }}" > ~/.ssh/id_rsa
+          cat << 'EOF' > ~/.ssh/id_rsa
+          ${{ secrets.EC2_SSH_KEY }}
+          EOF
           chmod 600 ~/.ssh/id_rsa
+
+      - name: 🔐 Adicionar host ao known_hosts
+        run: |
           ssh-keyscan -p ${{ secrets.EC2_PORT }} ${{ secrets.EC2_HOST }} >> ~/.ssh/known_hosts
 
-      - name: Testar conexão SSH
+      - name: 📦 Enviar JAR e Dockerfile para EC2
         run: |
-          ssh -p ${{ secrets.EC2_PORT }} -i ~/.ssh/id_rsa ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} "echo 'Conexão OK'"
+          scp -P ${{ secrets.EC2_PORT }} -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no \
+            target/ment-notification.jar \
+            Dockerfile \
+            ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }}:/home/ec2-user/ment-notification/
 
-      - name: Build com Maven
-        uses: actions/setup-java@v3
-        with:
-          java-version: '17'
-          distribution: 'temurin'
-      - run: cd ment-notification && mvn clean package -DskipTests
-
-      - name: Deploy para EC2
+      - name: 🚀 Deploy no EC2
         run: |
-          scp -P ${{ secrets.EC2_PORT }} -i ~/.ssh/id_rsa ment-notification/target/ment-notification.jar \
-            ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }}:/home/ec2-user/ment/ment-notification.jar
-          ssh -p ${{ secrets.EC2_PORT }} -i ~/.ssh/id_rsa ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} "
-            cd /home/ec2-user/ment &&
-            nohup java -jar ment-notification.jar > ment-notification.log 2>&1 &
-          "
+          ssh -i ~/.ssh/id_rsa -p ${{ secrets.EC2_PORT }} -o StrictHostKeyChecking=no \
+          ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} << 'EOF'
+            cd /home/ec2-user/ment-notification
+            # Build da imagem Docker
+            docker build -t ment-notification .
+            
+            # Parar container antigo se existir
+            if [ $(docker ps -q -f name=ment-notification) ]; then
+              docker stop ment-notification
+              docker rm ment-notification
+            fi
+
+            # Rodar o container
+            docker run -d --name ment-notification -p 8081:8080 ment-notification
+          EOF
