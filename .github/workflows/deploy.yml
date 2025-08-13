@@ -31,7 +31,7 @@ jobs:
         with:
           java-version: '17'
           distribution: 'temurin'
-      
+      - run: ls -R
       - run: mvn clean package -DskipTests
 
       - name: Deploy para EC2
