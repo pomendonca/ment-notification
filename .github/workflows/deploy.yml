@@ -1,4 +1,4 @@
-name: 🚀 Deploy ment-notification para EC2
+name: 🚀 Deploy ment-notification
 
 on:
   push:
@@ -13,11 +13,11 @@ jobs:
       - name: 📥 Checkout do código
         uses: actions/checkout@v4
 
-      - name: 🏗 Build do JAR usando Maven
+      - name: 🧱 Build Docker image
         run: |
-          mvn clean package -DskipTests
+          docker build -t ment-notification ./ment-notification
 
-      - name: 📝 Preparar chave SSH
+      - name: 📝 Criando chave privada SSH
         run: |
           mkdir -p ~/.ssh
           cat << 'EOF' > ~/.ssh/id_rsa
@@ -25,31 +25,30 @@ jobs:
           EOF
           chmod 600 ~/.ssh/id_rsa
 
-      - name: 🔐 Adicionar host ao known_hosts
+      - name: 🔐 Adicionando host ao known_hosts
         run: |
           ssh-keyscan -p ${{ secrets.EC2_PORT }} ${{ secrets.EC2_HOST }} >> ~/.ssh/known_hosts
 
-      - name: 📦 Enviar JAR e Dockerfile para EC2
+      - name: 📦 Enviando imagem Docker para EC2
         run: |
-          scp -P ${{ secrets.EC2_PORT }} -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no \
-            target/ment-notification.jar \
-            Dockerfile \
-            ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }}:/home/ec2-user/ment-notification/
+          # Salva imagem local em tar
+          docker save ment-notification | bzip2 > ment-notification.tar.bz2
 
-      - name: 🚀 Deploy no EC2
+          # Copia para EC2
+          scp -P ${{ secrets.EC2_PORT }} -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no \
+          ment-notification.tar.bz2 ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }}:/home/ec2-user/ment/
+
+      - name: 🐳 Rodando container na EC2
         run: |
           ssh -i ~/.ssh/id_rsa -p ${{ secrets.EC2_PORT }} -o StrictHostKeyChecking=no \
           ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} << 'EOF'
-            cd /home/ec2-user/ment-notification
-            # Build da imagem Docker
-            docker build -t ment-notification .
-            
-            # Parar container antigo se existir
-            if [ $(docker ps -q -f name=ment-notification) ]; then
-              docker stop ment-notification
-              docker rm ment-notification
-            fi
-
-            # Rodar o container
-            docker run -d --name ment-notification -p 8081:8080 ment-notification
+            cd /home/ec2-user/ment
+            # Remove container antigo, se existir
+            docker rm -f ment-notification || true
+            # Remove imagem antiga
+            docker rmi ment-notification || true
+            # Carrega a imagem enviada
+            bzip2 -dc ment-notification.tar.bz2 | docker load
+            # Roda container
+            docker run -d --name ment-notification -p 8081:8081 ment-notification
           EOF
