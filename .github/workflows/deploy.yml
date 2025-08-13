@@ -26,10 +26,13 @@ jobs:
         run: |
           ssh -p ${{ secrets.EC2_PORT }} -i ~/.ssh/id_rsa ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} "echo 'Conexão OK'"
 
-      - name: Build JAR
-        run: |
-          cd ment-notification
-          ./mvnw clean package -DskipTests
+      - name: Build com Maven
+        uses: actions/setup-java@v3
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+      
+      - run: mvn clean package -DskipTests
 
       - name: Deploy para EC2
         run: |
