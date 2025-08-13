@@ -1,45 +1,39 @@
-# Usando Amazon Corretto 17 (OpenJDK 17)
+# Base Java
 FROM amazoncorretto:17-alpine-jdk
 
-# Adiciona curl (necessário apenas para instalar Maven)
+# Instala curl
 RUN apk add --no-cache curl
 
-# Configura versão e diretório do Maven
+# Define versão do Maven
 ARG MAVEN_VERSION=3.8.3
 ARG SHA=1c12a5df43421795054874fd54bb8b37d242949133b5bf6052a063a13a93f13a20e6e9dae2b3d85b9c7034ec977bbc2b6e7f66832182b9c863711d78bfe60faa
-ARG MAVEN_HOME_DIR=usr/share/maven
-ARG APP_DIR="app"
+ARG MAVEN_HOME_DIR=/usr/share/maven
+ARG APP_DIR=ment-notification
 
-# Diretório Maven e download
-ARG BASE_URL=https://archive.apache.org/dist/maven/maven-3/${MAVEN_VERSION}/binaries
-RUN mkdir -p /$MAVEN_HOME_DIR /$MAVEN_HOME_DIR/ref \
-  && curl -fsSL -o /tmp/apache-maven.tar.gz ${BASE_URL}/apache-maven-${MAVEN_VERSION}-bin.tar.gz \
+# Download e instalação do Maven
+RUN mkdir -p $MAVEN_HOME_DIR /$APP_DIR/.m2 \
+  && curl -fsSL -o /tmp/apache-maven.tar.gz https://archive.apache.org/dist/maven/maven-3/${MAVEN_VERSION}/binaries/apache-maven-${MAVEN_VERSION}-bin.tar.gz \
   && echo "${SHA}  /tmp/apache-maven.tar.gz" | sha512sum -c - \
-  && tar -xzf /tmp/apache-maven.tar.gz -C /$MAVEN_HOME_DIR --strip-components=1 \
+  && tar -xzf /tmp/apache-maven.tar.gz -C $MAVEN_HOME_DIR --strip-components=1 \
   && rm -f /tmp/apache-maven.tar.gz \
-  && ln -s /$MAVEN_HOME_DIR/bin/mvn /usr/bin/mvn
+  && ln -s $MAVEN_HOME_DIR/bin/mvn /usr/bin/mvn
 
-# Configura Maven e app
-ENV MAVEN_CONFIG "/${APP_DIR}/.m2"
-ENV APP_NAME ment-notification
+ENV MAVEN_CONFIG="/$APP_DIR/.m2"
+ENV APP_NAME=ment-notification
 
-# Copia código fonte e POM
-COPY ./src ./$APP_DIR/src
-COPY pom.xml ./$APP_DIR
-
+# Copia o código
 WORKDIR /$APP_DIR
+COPY pom.xml ./
+COPY src ./src
 
-# Build do JAR
-RUN mvn clean package
+# Build do jar
+RUN mvn clean package -DskipTests
 
-# Copia JAR para diretório de trabalho
+# Copia o jar gerado para a raiz do WORKDIR
 RUN cp target/$APP_NAME.jar .
 
-# Limpeza: remove fonte, POM, Maven e cache
-RUN rm -rf src pom.xml target /$MAVEN_HOME_DIR $MAVEN_CONFIG \
-    && apk del curl
+# Limpeza para imagem menor
+RUN rm -rf src pom.xml target $MAVEN_HOME_DIR
 
-VOLUME $APP_DIR/tmp
 EXPOSE 8081
-
 ENTRYPOINT ["java", "-jar", "ment-notification.jar", "-Djava.security.egd=file:/dev/./urandom"]
