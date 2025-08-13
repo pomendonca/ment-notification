@@ -10,8 +10,10 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout código
+      - name: 📥 Checkout ment-notification
         uses: actions/checkout@v4
+        with:
+          path: ment-notification
 
       - name: Configurar chave SSH
         run: |
