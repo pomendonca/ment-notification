@@ -1,77 +1,45 @@
+# Usando Amazon Corretto 17 (OpenJDK 17)
 FROM amazoncorretto:17-alpine-jdk
 
-# 1- Add curl
+# Adiciona curl (necessário apenas para instalar Maven)
 RUN apk add --no-cache curl
 
-# 2- Define a constant with the version of Maven.
+# Configura versão e diretório do Maven
 ARG MAVEN_VERSION=3.8.3
-
-# 3- Define the SHA key to validate the maven download. EACH VERSION HAS ITS OWN SHA!!!
 ARG SHA=1c12a5df43421795054874fd54bb8b37d242949133b5bf6052a063a13a93f13a20e6e9dae2b3d85b9c7034ec977bbc2b6e7f66832182b9c863711d78bfe60faa
-
-# 4- Define a constant with the directory for Maven installation
 ARG MAVEN_HOME_DIR=usr/share/maven
-
-# 5- Define a constant with the working directory
 ARG APP_DIR="app"
 
-# 6- Define the URL where maven can be downloaded from
+# Diretório Maven e download
 ARG BASE_URL=https://archive.apache.org/dist/maven/maven-3/${MAVEN_VERSION}/binaries
-
-# 7- Create the directories, download Maven, validate the download, install it, remove the downloaded file, and set links
 RUN mkdir -p /$MAVEN_HOME_DIR /$MAVEN_HOME_DIR/ref \
-  && echo "[ECHO] Downloading maven" \
   && curl -fsSL -o /tmp/apache-maven.tar.gz ${BASE_URL}/apache-maven-${MAVEN_VERSION}-bin.tar.gz \
-  \
-  && echo "[ECHO] Checking download hash" \
   && echo "${SHA}  /tmp/apache-maven.tar.gz" | sha512sum -c - \
-  \
-  && echo "[ECHO] Unzipping maven" \
   && tar -xzf /tmp/apache-maven.tar.gz -C /$MAVEN_HOME_DIR --strip-components=1 \
-  \
-  && echo "[ECHO] Cleaning and setting links" \
   && rm -f /tmp/apache-maven.tar.gz \
   && ln -s /$MAVEN_HOME_DIR/bin/mvn /usr/bin/mvn
 
-# 8- Define environmental variables required by Maven, like the Maven_Home directory and where the maven repo is located
+# Configura Maven e app
 ENV MAVEN_CONFIG "/${APP_DIR}/.m2"
-
-# 9- Define app name an artifactId from POM
 ENV APP_NAME ment-notification
 
-# 10- Copy source code and POM
+# Copia código fonte e POM
 COPY ./src ./$APP_DIR/src
 COPY pom.xml ./$APP_DIR
 
-# 11- Define app directory as the working directory
 WORKDIR /$APP_DIR
 
-# 12- Build and package source code using Maven
+# Build do JAR
 RUN mvn clean package
 
-# 13- Copy jar file to the work directory
-RUN mv target/$APP_NAME.jar .
+# Copia JAR para diretório de trabalho
+RUN cp target/$APP_NAME.jar .
 
-# 14- Remove Maven and source code of an application to make an image cleaner
-RUN echo "[ECHO] Removing source code" \
-    && rm -rf /$APP_DIR/src \
-    \
-    && echo "[ECHO] Removing pom.xml"  \
-    && rm -f /$APP_DIR/pom.xml \
-    \
-     && echo "[ECHO] Removing output of the build"  \
-    && rm -rf /$APP_DIR/target \
-    \
-    && echo "[ECHO] Removing local maven repository ${MAVEN_CONFIG}"  \
-    && rm -rf $MAVEN_CONFIG \
-    \
-    && echo "[ECHO] Removing maven binaries"  \
-    && rm -rf /$MAVEN_HOME_DIR \
-    \
-    && echo "[ECHO] Removing curl binaries"  \
-    && apk del --no-cache curl
+# Limpeza: remove fonte, POM, Maven e cache
+RUN rm -rf src pom.xml target /$MAVEN_HOME_DIR $MAVEN_CONFIG \
+    && apk del curl
 
 VOLUME $APP_DIR/tmp
-EXPOSE 8080
+EXPOSE 8081
 
-ENTRYPOINT exec java -jar $APP_NAME.jar -Djava.security.egd=file:/dev/./urandom $JAVA_OPTS
+ENTRYPOINT ["java", "-jar", "ment-notification.jar", "-Djava.security.egd=file:/dev/./urandom"]
