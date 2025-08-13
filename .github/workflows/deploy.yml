@@ -1,38 +1,28 @@
-name: Deploy to EC2
+name: Deploy ment-notification
 
 on:
   push:
-    branches: [ "main" ]
+    branches:
+      - main
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v3
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
-      - name: Decode and print full SSH key (not safe for public repos!)
-        run: |
-          mkdir -p ~/.ssh
-          echo "${{ secrets.EC2_SSH_KEY_B64 }}" | base64 -d | tee ~/.ssh/id_rsa          
-          
-          echo "[DEBUG] Adding EC2 host to known_hosts..."
-          ssh-keyscan -p ${{ secrets.EC2_PORT }} ${{ secrets.EC2_HOST }} >> ~/.ssh/known_hosts
+      - name: Setup SSH key
+        uses: webfactory/ssh-agent@v0.8.0
+        with:
+          ssh-private-key: ${{ secrets.EC2_SSH_KEY }}
 
-      - name: Copy project to EC2
+      - name: Deploy to EC2
         run: |
-          echo "[INFO] Starting rsync to EC2..."
-          rsync -avz -e "ssh -i ~/.ssh/id_rsa -p ${{ secrets.EC2_PORT }}" ./ ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }}:/home/ec2-user/app
-
-      - name: Deploy with Docker Compose
-        run: |
-          echo "[INFO] Connecting to EC2 and starting Docker Compose..."
-          ssh -i ~/.ssh/id_rsa -p ${{ secrets.EC2_PORT }} ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} << 'EOF'
-            set -e
-            cd /home/ec2-user/app
-            echo "[INFO] Pulling down current containers..."
-            docker-compose down
-            echo "[INFO] Rebuilding and starting containers..."
-            docker-compose up --build -d
+          ssh -o StrictHostKeyChecking=no ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} << 'EOF'
+            cd /home/${{ secrets.EC2_USER }}/ment
+            git clone https://github.com/seu-usuario/ment-notification.git || (cd ment-notification && git pull)
+            docker-compose -f /home/${{ secrets.EC2_USER }}/ment/docker-compose.yml build ment-notification
+            docker-compose -f /home/${{ secrets.EC2_USER }}/ment/docker-compose.yml up -d ment-notification
           EOF
