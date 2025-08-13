@@ -10,19 +10,28 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout repository
+      - name: Checkout do código
         uses: actions/checkout@v4
 
-      - name: Setup SSH key
-        uses: webfactory/ssh-agent@v0.8.0
-        with:
-          ssh-private-key: ${{ secrets.EC2_SSH_KEY }}
-
-      - name: Deploy to EC2
+      - name: Configurar chave SSH
         run: |
-          ssh -o StrictHostKeyChecking=no ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} << 'EOF'
-            cd /home/${{ secrets.EC2_USER }}/ment
-            git clone https://github.com/seu-usuario/ment-notification.git || (cd ment-notification && git pull)
-            docker-compose -f /home/${{ secrets.EC2_USER }}/ment/docker-compose.yml build ment-notification
-            docker-compose -f /home/${{ secrets.EC2_USER }}/ment/docker-compose.yml up -d ment-notification
+          mkdir -p ~/.ssh
+          echo "${{ secrets.EC2_SSH_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -p ${{ secrets.EC2_PORT }} ${{ secrets.EC2_HOST }} >> ~/.ssh/known_hosts
+
+      - name: Build do JAR
+        run: mvn clean install -DskipTests
+
+      - name: Enviar JAR para EC2
+        run: |
+          scp -P ${{ secrets.EC2_PORT }} target/ment-notification.jar \
+            ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }}:/home/ec2-user/ment/ment-notification.jar
+
+      - name: Reiniciar serviço no EC2
+        run: |
+          ssh -p ${{ secrets.EC2_PORT }} ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} << 'EOF'
+          pkill -f ment-notification.jar || true
+          nohup java -jar /home/ec2-user/ment/ment-notification.jar \
+            -Djava.security.egd=file:/dev/./urandom > /home/ec2-user/ment/ment-notification.log 2>&1 &
           EOF
