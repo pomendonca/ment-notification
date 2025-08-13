@@ -15,7 +15,7 @@ jobs:
 
       - name: 🧱 Build Docker image
         run: |
-          docker build -t ment-notification ./ment-notification
+          docker build -t ment-notification -f ment-notification/Dockerfile .
 
       - name: 📝 Criando chave privada SSH
         run: |
